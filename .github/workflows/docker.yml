@@ -13,8 +13,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-  
+    - name: Checkout
+      uses: actions/checkout@v2
+
     - name: Docker Login
       uses: azure/docker-login@v1
       with:
@@ -22,7 +23,17 @@ jobs:
         username: ${{ secrets.REGISTRY_USERNAME }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
 
-    - name: Build the Docker image
+    - name: Kubectl setup
+      uses: azure/k8s-set-context@v1
+      with:
+        method: kubeconfig
+        kubeconfig: ${{ secrets.KUBE_CONFIG }}
+      id: setcontext
+
+    - name: Build, push, start
       run: |
         docker build . --file Dockerfile --tag ${{ secrets.REGISTRY_URL }}/githubactionsplayground:${{ github.sha }}
         docker push ${{ secrets.REGISTRY_URL }}/githubactionsplayground:${{ github.sha }}
+        sed -i 's/REGISTRY_URL/${{ secrets.REGISTRY_URL }}/g' k8s.yaml
+        sed -i 's/IMAGE_LABEL/${{ github.sha }}/g' k8s.yaml
+        kubectl apply -f k8s.yaml
