@@ -1,0 +1,31 @@
+name: Docker build on PR
+# subset of the main build, doesn't deploy
+
+on:
+  pull_request:
+    branches: [ '**' ]
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Docker build
+      run: |
+        docker build . --file Dockerfile --tag ${{ secrets.REGISTRY_URL }}/githubactionsplayground:pr-${{ github.sha }}
+
+    - name: Anchore scan
+      uses: anchore/scan-action@1.0.6
+      with:
+        image-reference: ${{ secrets.REGISTRY_URL }}/githubactionsplayground:pr-${{ github.sha }}
+        dockerfile-path: Dockerfile
+        include-app-packages: true
+        fail-build: true
+
+    - name: Show Anchore results
+      run: for j in `ls ./anchore-reports/*.json`; do echo "---- ${j} ----"; cat ${j}; echo; done
