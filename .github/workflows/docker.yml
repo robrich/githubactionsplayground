@@ -30,9 +30,23 @@ jobs:
         kubeconfig: ${{ secrets.KUBE_CONFIG }}
       id: setcontext
 
-    - name: Build, push, start
+    - name: Docker build
       run: |
         docker build . --file Dockerfile --tag ${{ secrets.REGISTRY_URL }}/githubactionsplayground:${{ github.sha }}
+
+    - name: Anchore scan
+      uses: anchore/scan-action@1.0.6
+      with:
+        image-reference: ${{ secrets.REGISTRY_URL }}/githubactionsplayground:${{ github.sha }}
+        dockerfile-path: Dockerfile
+        include-app-packages: true
+        fail-build: true
+
+    - name: Show Anchore results
+      run: for j in `ls ./anchore-reports/*.json`; do echo "---- ${j} ----"; cat ${j}; echo; done
+
+    - name: Docker push, kubectl apply
+      run: |
         docker push ${{ secrets.REGISTRY_URL }}/githubactionsplayground:${{ github.sha }}
         sed -i 's/REGISTRY_URL/${{ secrets.REGISTRY_URL }}/g' k8s.yaml
         sed -i 's/IMAGE_LABEL/${{ github.sha }}/g' k8s.yaml
